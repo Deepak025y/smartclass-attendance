@@ -1,0 +1,201 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SmartClass Attendance</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6fb;color:#18263b;font:15px system-ui,Arial}header{background:#17243b;color:white;padding:16px;display:flex;justify-content:space-between;align-items:center}main{max-width:1000px;margin:20px auto;padding:0 12px}.card{background:white;border:1px solid #dce3ed;border-radius:12px;padding:16px;margin-bottom:14px}h1{font-size:21px;margin:0}h2{font-size:18px;margin:0 0 12px}.muted{font-size:13px;color:#627087}label{display:block;font-size:13px;font-weight:650;margin:9px 0 4px}input,select,button{font:inherit;padding:10px;border:1px solid #cbd5e1;border-radius:8px;width:100%;background:white}button{background:#2457d6;color:white;border:0;font-weight:650;cursor:pointer}button:disabled{opacity:.5}.row{display:flex;gap:10px;flex-wrap:wrap}.row>div{flex:1;min-width:150px}.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}.tabs button{width:auto}.secondary{background:#e7edf7;color:#21344f}.hidden{display:none!important}.notice{padding:10px;border-radius:8px;background:#edf3ff;margin:10px 0}.warn{background:#fff3d9;color:#784800}table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px}td,th{padding:8px;border-bottom:1px solid #e1e7ef;text-align:left}.scroll{overflow:auto}.video{position:relative;background:#101828;border-radius:10px;overflow:hidden;margin:12px 0}video{width:100%;max-height:60vh;display:block}canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.badge{font-size:12px;padding:3px 7px;border-radius:20px;background:#e6f6eb;color:#17653d}.review{background:#fff0d2;color:#805000}.stats{display:flex;gap:10px;flex-wrap:wrap}.stats div{flex:1;min-width:100px;background:#f4f7fb;padding:12px;border-radius:8px}.stats strong{display:block;font-size:22px}.previews img{width:55px;height:55px;object-fit:cover;margin:3px;border-radius:6px}
+</style></head><body>
+<header><div><h1>SmartClass</h1><small>Face Recognition Attendance</small></div><button id="logout" class="secondary hidden" style="width:auto">Log out</button></header><main>
+<div id="status" class="notice">Loading fast face models…</div>
+<section id="auth" class="card"><div class="tabs"><button id="loginTab">Log in</button><button id="registerTab" class="secondary">Create teacher account</button></div>
+<form id="loginForm"><h2>Teacher login</h2><label>Email</label><input id="le" type="email" required><label>Password</label><input id="lp" type="password" required><p><button>Log in</button></p></form>
+<form id="registerForm" class="hidden"><h2>Create teacher account</h2><label>Teacher name</label><input id="rn" required><label>Email</label><input id="re" type="email" required><label>Password (8+ characters)</label><input id="rp" type="password" minlength="8" required><p><button>Create account</button></p><p class="muted">Prototype warning: accounts are stored locally in this browser and are not secure production authentication.</p></form></section>
+<section id="app" class="hidden"><div class="card"><h2 id="welcome">Teacher dashboard</h2><div class="stats"><div><strong id="cc">0</strong>Classes</div><div><strong id="sc">0</strong>Students</div><div><strong id="sessc">0</strong>Saved sessions</div></div></div>
+<div class="tabs"><button data-tab="manage">Classes & students</button><button data-tab="take" class="secondary">Take attendance</button><button data-tab="reports" class="secondary">Reports</button></div>
+<section id="manage">
+<div class="card"><h2>Create a class</h2><form id="classForm" class="row"><div><label>Class name</label><input id="className" placeholder="BCA First Year" required></div><div style="flex:0 0 150px;align-self:end"><button>Create class</button></div></form><div id="classes" class="scroll"></div></div>
+<div class="card"><h2>Register a student</h2><p class="muted">Add name, roll number and up to 20 clear reference photos. Use varied, well-lit images with one face per photo. Only images with a detectable face are used.</p><form id="studentForm"><div class="row"><div><label>Class</label><select id="studentClass" required></select></div><div><label>Student name</label><input id="sn" required></div><div><label>Roll number</label><input id="sr" required></div></div><label>Reference photos</label><input id="photos" type="file" accept="image/*" multiple required><div id="previews" class="previews"></div><p id="photoInfo" class="muted">No photos selected.</p><button id="addStudent">Register student</button></form><div id="students" class="scroll"></div></div></section>
+<section id="take" class="hidden"><div class="card"><h2>Take attendance at the classroom exit</h2><div class="notice warn">Students can walk naturally past the camera. Position it at face height with clear, frontal lighting; avoid crowding or fast movement. Camera access requires HTTPS (or localhost). Allow camera permission, use good lighting, and review every match before saving. Multiple faces can be detected in the same frame.</div><label>Class</label><select id="takeClass"></select><div class="row" style="margin-top:10px"><div><button id="cameraBtn">Start camera</button></div><div><button id="startBtn" disabled>Start attendance</button></div><div><button id="stopBtn" disabled>Stop attendance</button></div></div><div class="video"><video id="video" playsinline autoplay muted></video><canvas id="overlay"></canvas></div><p id="camMsg" class="muted">Camera is off.</p><div class="stats"><div><strong id="presentCount">0</strong>Present</div><div><strong id="reviewCount">0</strong>Absent</div></div></div><div class="card"><h2>Session results</h2><p class="muted">Registered students not recognized will be marked absent when the session stops.</p><div id="live" class="scroll"></div><button id="saveBtn" disabled>Review and save session</button></div></section>
+<section id="reports" class="hidden"><div class="card"><h2>Attendance reports</h2><button id="csvBtn">Export class CSVs</button> <button id="jsonBtn" class="secondary">Backup JSON</button><div id="report" class="scroll"></div></div></section></section>
+<p class="muted">Privacy: face descriptors are sensitive biometric data, especially for students. Use only with informed consent, school approval, and an appropriate retention policy. This version stores data in browser Local Storage, so it does not synchronize between devices. Cloud authentication and a database must be configured separately. Provide a non-biometric attendance option.</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script><script>
+const $=x=>document.getElementById(x);
+const MODEL='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+const DETECT_OPTS=()=>new faceapi.TinyFaceDetectorOptions({inputSize:512,scoreThreshold:.28});
+let candidateHits=new Map(),scanGeneration=0;
+let user=null,db={classes:[],students:[],sessions:[]},ready=false,stream=null,timer=null,running=false,busy=false,startTime=0,events=[],seen=new Set(),classTemplates=[];
+
+const getAccounts=()=>JSON.parse(localStorage.getItem('sc_accounts')||'[]');
+function notice(t,kind=''){ $('status').textContent=t;$('status').className='notice '+kind}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function save(){let all=JSON.parse(localStorage.getItem('sc_data')||'{}');all[user.email]=db;localStorage.setItem('sc_data',JSON.stringify(all))}
+function load(){db=JSON.parse(localStorage.getItem('sc_data')||'{}')[user.email]||{classes:[],students:[],sessions:[]}}
+function enter(u){user=u;load();$('auth').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcome').textContent='Welcome, '+u.name;render();notice('Signed in (this device only). Cloud setup required for cross-device sync.')}
+$('loginTab').onclick=()=>{ $('loginForm').classList.remove('hidden');$('registerForm').classList.add('hidden')};
+$('registerTab').onclick=()=>{ $('registerForm').classList.remove('hidden');$('loginForm').classList.add('hidden')};
+$('registerForm').onsubmit=e=>{e.preventDefault();let a=getAccounts(),email=$('re').value.trim().toLowerCase();if(a.some(x=>x.email===email))return notice('This email already has an account in this browser.','warn');a.push({name:$('rn').value.trim(),email,password:$('rp').value});localStorage.setItem('sc_accounts',JSON.stringify(a));enter(a[a.length-1]);notice('Account created. Remember: this is a local prototype.','good')};
+$('loginForm').onsubmit=e=>{e.preventDefault();let email=$('le').value.trim().toLowerCase(),a=getAccounts().find(x=>x.email===email&&x.password===$('lp').value);if(!a)return notice('Incorrect email or password for this browser.','warn');enter(a)};
+$('logout').onclick=()=>{stop(false);offCamera();user=null;$('app').classList.add('hidden');$('auth').classList.remove('hidden');$('logout').classList.add('hidden');notice('Logged out.')};
+
+async function loadModels(){
+ try{
+  if(!window.faceapi)throw new Error('Face library did not load. Check your internet connection.');
+  await Promise.all([
+   faceapi.nets.tinyFaceDetector.loadFromUri(MODEL),
+   faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL),
+   faceapi.nets.faceRecognitionNet.loadFromUri(MODEL)
+  ]);
+  ready=true;notice('Fast face models loaded. Camera is ready when you are.','good');
+ }catch(e){notice('Face models could not load. Check internet access, then reload. '+e.message,'warn')}
+}
+loadModels();
+
+function cname(id){return db.classes.find(c=>c.id===id)?.name||'Class'}
+function fill(sel){sel.innerHTML='<option value="">Select class</option>'+db.classes.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+function render(){fill($('studentClass'));fill($('takeClass'));$('cc').textContent=db.classes.length;$('sc').textContent=db.students.length;$('sessc').textContent=db.sessions.length;
+ $('classes').innerHTML=db.classes.length?`<table><tr><th>Class</th><th>Students</th><th></th></tr>${db.classes.map(c=>`<tr><td>${esc(c.name)}</td><td>${db.students.filter(s=>s.classId===c.id).length}</td><td><button data-delclass="${c.id}" style="background:#b42318">Delete</button></td></tr>`).join('')}</table>`:'<p class="muted">Create your first class.</p>';
+ $('students').innerHTML=db.classes.map(c=>{let ss=db.students.filter(s=>s.classId===c.id);return ss.length?`<h3>${esc(c.name)}</h3><table><tr><th>Name</th><th>Roll</th><th>Samples</th><th></th></tr>${ss.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.roll)}</td><td>${s.descriptors.length}</td><td><button data-delstudent="${s.id}" style="background:#b42318">Delete</button></td></tr>`).join('')}</table>`:''}).join('')||'<p class="muted">No students registered.</p>';renderReports()}
+$('classForm').onsubmit=e=>{e.preventDefault();db.classes.push({id:uid(),name:$('className').value.trim()});save();$('className').value='';render();notice('Class created.','good')};
+$('classes').onclick=e=>{let b=e.target.closest('[data-delclass]');if(!b)return;if(!confirm('Delete this class and its students?'))return;db.classes=db.classes.filter(c=>c.id!==b.dataset.delclass);db.students=db.students.filter(s=>s.classId!==b.dataset.delclass);save();render()};
+$('students').onclick=e=>{let b=e.target.closest('[data-delstudent]');if(b&&confirm('Delete this student and face samples?')){db.students=db.students.filter(s=>s.id!==b.dataset.delstudent);save();render()}};
+$('photos').onchange=()=>{$('photoInfo').textContent=$('photos').files.length+' photo(s) selected. Use a few clear, varied, consented reference images.';$('previews').innerHTML='';[...$('photos').files].slice(0,15).forEach(f=>{let i=document.createElement('img');i.src=URL.createObjectURL(f);$('previews').append(i)})};
+function imageFile(file){return new Promise((res,rej)=>{let im=new Image;im.onload=()=>res(im);im.onerror=rej;im.src=URL.createObjectURL(file)})}
+$('studentForm').onsubmit=async e=>{
+ e.preventDefault();if(!ready)return notice('Wait for face models to load.','warn');
+ let classId=$('studentClass').value,name=$('sn').value.trim(),roll=$('sr').value.trim(),files=[...$('photos').files].slice(0,20);
+ if(!classId)return notice('Create a class first.','warn');
+ if(db.students.some(s=>s.classId===classId&&s.roll.toLowerCase()===roll.toLowerCase()))return notice('Roll number already exists in this class.','warn');
+ if(!files.length)return notice('Choose reference photos.','warn');
+ let desc=[],fail=0;$('addStudent').disabled=true;
+ try{
+  for(let i=0;i<files.length;i++){
+   notice(`Processing reference ${i+1}/${files.length}…`);
+   try{let im=await imageFile(files[i]),r=await faceapi.detectSingleFace(im,DETECT_OPTS()).withFaceLandmarks(true).withFaceDescriptor();if(r)desc.push(Array.from(r.descriptor));else fail++}catch{fail++}
+  }
+  if(!desc.length)return notice('No faces found. Try clear, well-lit photos with one face in each image.','warn');
+  db.students.push({id:uid(),classId,name,roll,descriptors:desc});save();$('studentForm').reset();$('previews').innerHTML='';$('photoInfo').textContent='No photos selected.';render();notice(`Registered ${name} with ${desc.length} usable samples. ${fail} image(s) were skipped.`,'good');
+ }finally{$('addStudent').disabled=false}
+};
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.className=x===b?'':'secondary');['manage','take','reports'].forEach(t=>$(t).classList.toggle('hidden',t!==b.dataset.tab));if(b.dataset.tab==='reports')renderReports()});
+
+async function startCamera(){
+ if(!navigator.mediaDevices?.getUserMedia){notice('This browser does not provide camera access. Try a current version of Chrome.','warn');return}
+ if(!window.isSecureContext){notice('Camera access is blocked on this page because it is not HTTPS. Open it using HTTPS or http://localhost.','warn');$('camMsg').textContent='Secure connection required for camera access.';return}
+ try{
+  offCamera();
+  const base={audio:false,video:{width:{ideal:1280},height:{ideal:720},frameRate:{ideal:24,max:30}}};
+  try{stream=await navigator.mediaDevices.getUserMedia({...base,video:{...base.video,facingMode:{ideal:'environment'}}})}
+  catch(firstError){stream=await navigator.mediaDevices.getUserMedia(base)}
+  const v=$('video');v.srcObject=stream;
+  await new Promise((resolve,reject)=>{if(v.readyState>=1)return resolve();v.onloadedmetadata=resolve;v.onerror=()=>reject(new Error('Video stream could not be displayed.'))});
+  await v.play();
+  $('startBtn').disabled=!ready;$('camMsg').textContent=`Camera on (${v.videoWidth} × ${v.videoHeight}). Select a class and start attendance.`;
+  fitOverlay();
+ }catch(e){offCamera();notice('Camera could not start: '+(e.name==='NotAllowedError'?'Permission denied. Allow camera access in browser settings.':e.name==='NotFoundError'?'No camera was found.':e.message),'warn');$('camMsg').textContent='Camera is off. Check permission and try again.'}
+}
+$('cameraBtn').onclick=startCamera;
+function offCamera(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;$('video').srcObject=null;$('startBtn').disabled=true}
+function fitOverlay(){let v=$('video'),c=$('overlay');if(v.videoWidth&&v.videoHeight){c.width=v.videoWidth;c.height=v.videoHeight}}
+$('video').addEventListener('loadedmetadata',fitOverlay);
+$('startBtn').onclick=()=>{
+ if(!ready)return notice('Face models are not ready.','warn');
+ if(!stream)return notice('Start the camera first.','warn');
+ if(!$('takeClass').value)return notice('Select a class.','warn');
+ const roster=db.students.filter(s=>s.classId===$('takeClass').value);
+ if(!roster.length)return notice('Register students in this class first.','warn');
+ // Cache one normalized mean descriptor per student, rather than comparing every
+ // stored photo on every camera frame. Each detected face is still matched separately.
+ classTemplates=roster.map(s=>({student:s,descriptors:s.descriptors.map(d=>new Float32Array(d)),mean:meanDescriptor(s.descriptors)})).filter(x=>x.descriptors.length);
+ running=true;scanGeneration++;candidateHits.clear();startTime=Date.now();events=[];seen=new Set();$('startBtn').disabled=true;$('stopBtn').disabled=false;$('saveBtn').disabled=true;$('camMsg').textContent='Continuous walk-through scanning active. Students do not need to stop, but faces must be visible clearly in at least two frames.';scan();
+};
+function meanDescriptor(list){
+ if(!list?.length)return null;const n=list[0].length,out=new Float32Array(n);
+ for(const d of list)for(let i=0;i<n;i++)out[i]+=Number(d[i]||0)/list.length;
+ return out;
+}
+$('stopBtn').onclick=()=>stop(true);
+function stop(saveAllowed){
+ running=false;scanGeneration++;if(timer)clearTimeout(timer);timer=null;
+ $('stopBtn').disabled=true;$('startBtn').disabled=!stream||!ready;
+ if(saveAllowed){
+  const classId=$('takeClass').value;
+  for(const s of db.students.filter(x=>x.classId===classId)){
+   if(!events.some(e=>e.studentId===s.id))events.push({id:uid(),studentId:s.id,name:s.name,roll:s.roll,distance:null,time:new Date().toISOString(),status:'Absent',classId});
+  }
+ }
+ $('saveBtn').disabled=!saveAllowed;
+ $('camMsg').textContent='Scanning stopped. Review attendance and save.';showEvents();
+}
+// Continuous camera processing: schedule the next pass immediately after the previous one.
+// Require two consistent sightings to reduce accidental matches while students walk past.
+async function scan(){
+ if(!running||busy||!stream||$('video').readyState<2)return;
+ const generation=scanGeneration;busy=true;
+ try{
+  const v=$('video'),rs=await faceapi.detectAllFaces(v,DETECT_OPTS()).withFaceLandmarks(true).withFaceDescriptors(),c=$('overlay');
+  if(!running||generation!==scanGeneration)return;
+  if(c.width!==v.videoWidth||c.height!==v.videoHeight)fitOverlay();
+  const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);
+  for(const r of rs){
+   const b=r.detection.box;
+   const ranked=classTemplates.map(t=>({student:t.student,d:Math.min(...t.descriptors.map(d=>faceapi.euclideanDistance(r.descriptor,d)),faceapi.euclideanDistance(r.descriptor,t.mean))})).sort((a,b)=>a.d-b.d);
+   const best=ranked[0],second=ranked[1];
+   const ok=!!best&&best.d<.49&&(!second||second.d-best.d>=.035);
+   const s=ok?best.student:null;
+   let label='Unverified';
+   if(s){
+    if(seen.has(s.id))label=s.name+' · present';
+    else{
+     const now=Date.now(),previous=candidateHits.get(s.id);
+     const count=previous&&now-previous.time<2500?previous.count+1:1;
+     candidateHits.set(s.id,{count,time:now});
+     label=s.name+(count<2?' · confirming':' · present');
+     if(count>=2){
+      seen.add(s.id);
+      events.push({id:uid(),studentId:s.id,name:s.name,roll:s.roll,distance:+best.d.toFixed(3),time:new Date().toISOString(),status:'Present',classId:$('takeClass').value});
+     }
+    }
+   }
+   ctx.strokeStyle=ok?'#18b765':'#e8a000';ctx.lineWidth=3;ctx.strokeRect(b.x,b.y,b.width,b.height);
+   ctx.font='bold 17px system-ui';const w=ctx.measureText(label).width+14,y=Math.max(0,b.y-27);
+   ctx.fillStyle=ok?'#16804a':'#a35b00';ctx.fillRect(b.x,y,w,27);ctx.fillStyle='white';ctx.fillText(label,b.x+7,y+19);
+  }
+  $('camMsg').textContent=`Walk-through scanning: ${rs.length} face(s) visible; ${seen.size} registered students marked present.`;
+  showEvents();
+ }catch(e){if(running)$('camMsg').textContent='Recognition error: '+e.message}
+ finally{
+  busy=false;
+  if(running&&generation===scanGeneration)timer=setTimeout(scan,120);
+ }
+}
+function showEvents(){
+ $('presentCount').textContent=events.filter(e=>e.status==='Present').length;
+ $('reviewCount').textContent=events.filter(e=>e.status==='Absent').length;
+ $('live').innerHTML=events.length?`<table><tr><th>Student</th><th>Roll</th><th>Status</th><th>Correct</th></tr>${events.map(e=>`<tr><td>${esc(e.name)}</td><td>${esc(e.roll)}</td><td>${esc(e.status)}</td><td><select data-event="${e.id}"><option value="Present" ${e.status==='Present'?'selected':''}>Present</option><option value="Absent" ${e.status==='Absent'?'selected':''}>Absent</option></select></td></tr>`).join('')}</table>`:'<p class="muted">No recognized students yet.</p>';
+}
+$('live').onchange=e=>{let ev=events.find(x=>x.id===e.target.dataset.event);if(ev)ev.status=e.target.value;showEvents()};
+$('saveBtn').onclick=()=>{
+ const classId=$('takeClass').value,day=new Date(startTime).toLocaleDateString('en-CA');
+ const existing=db.sessions.find(s=>s.classId===classId&&s.day===day);
+ const record={id:existing?.id||uid(),classId,className:cname(classId),day,startedAt:new Date(startTime).toISOString(),endedAt:new Date().toISOString(),events:events.map(e=>({...e}))};
+ if(existing)Object.assign(existing,record);else db.sessions.push(record);
+ save();render();$('saveBtn').disabled=true;notice('Attendance saved: present and absent recorded.','good');
+};
+function renderReports(){$('report').innerHTML=db.sessions.length?`<table><tr><th>Date</th><th>Class</th><th>Present</th><th>Absent</th></tr>${[...db.sessions].reverse().map(s=>`<tr><td>${esc(s.day||s.startedAt.slice(0,10))}</td><td>${esc(s.className)}</td><td>${s.events.filter(e=>e.status==='Present'||e.status==='Suggested present').length}</td><td>${s.events.filter(e=>e.status==='Absent').length}</td></tr>`).join('')}</table>`:'<p class="muted">No saved sessions yet.</p>'}
+function download(name,txt,type){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+$('csvBtn').onclick=()=>{
+ for(const c of db.classes){
+  const students=db.students.filter(s=>s.classId===c.id).sort((a,b)=>String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true}));
+  const sessions=db.sessions.filter(s=>s.classId===c.id).sort((a,b)=>a.startedAt.localeCompare(b.startedAt));
+  const dates=[...new Set(sessions.map(s=>s.day||s.startedAt.slice(0,10)))];
+  const rows=[['Roll no','Name',...dates],...students.map(st=>[st.roll,st.name,...dates.map(date=>{
+   const sess=[...sessions].reverse().find(s=>(s.day||s.startedAt.slice(0,10))===date);
+   if(!sess)return '';
+   const match=sess.events.find(e=>e.studentId===st.id||e.roll===st.roll);
+   return match&&(match.status==='Present'||match.status==='Suggested present')?'P':'A';
+  })])];
+  download('attendance-'+c.name.replace(/[^a-z0-9_-]/gi,'_')+'.csv',rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n'),'text/csv');
+ }
+};
+$('jsonBtn').onclick=()=>download('smartclass-backup.json',JSON.stringify(db,null,2),'application/json');
+window.addEventListener('beforeunload',()=>{if(timer)clearInterval(timer);if(stream)stream.getTracks().forEach(t=>t.stop())});
+</script></body></html>
